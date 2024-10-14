@@ -1,6 +1,14 @@
 from Chain import Prompt, Model, Chain
+from pathlib import Path
 import argparse
 import sys
+from message_store import MessageStore
+from rich.console import Console
+
+# set dir_path
+dir_path = Path(__file__).resolve().parent
+# set up console
+console = Console(width=100)
 
 example_task = """
 I will use an LLM to help me curate courses from a catalogue of 10,000 courses to best address a topic for a given audience.
@@ -16,19 +24,36 @@ Also have the LLM do chain of thought from the perspective of a learner. IF I wa
 """
 
 if __name__ == "__main__":
+    # set up messagestore
+    file_path = dir_path / "messagestore.pickle"
+    messagestore = MessageStore(file_path = file_path, console=console)
+    # Our parser
     parser = argparse.ArgumentParser()
-    parser.add_argument("--task", type=str, help="TASK")
+    parser.add_argument("task", type=str, nargs="?", help="TASK")
+    parser.add_argument("-l", "--last", action="store_true", help="Return the last output.")
     args = parser.parse_args()
+    # Grab task from args if exists
+    if args.last:
+        console.print(messagestore.last().content)
+        sys.exit()
     if args.task:
         task = args.task
+    # Otherwise, check if a task is being piped into script through stdin
+    elif not sys.stdin.isatty():
+        context = sys.stdin.read()
+        # We add this as context to the query
+        task = f"\n<context>\n{context}</context>"
+    # Otherwise, use the example task.
     else:
         task = example_task
-    with open("metaprompt.jinja", "r") as f:
+    with open(dir_path / "metaprompt.jinja", "r") as f:
         metaprompt_string = f.read()
-    with open("metaprompt_examples.txt", "r") as f:
+    with open(dir_path / "metaprompt_examples.txt", "r") as f:
         metamodel_examples_string = f.read()
     metaprompt = Prompt(metaprompt_string + metamodel_examples_string)
     model = Model("claude")
     chain = Chain(metaprompt, model)
     response = chain.run(input_variables = {'TASK':task})
-    print(response)
+    console.print(response)
+    messagestore.add('user', response.prompt)
+    messagestore.add('assistant', response.content)

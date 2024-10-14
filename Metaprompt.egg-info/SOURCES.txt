@@ -1,0 +1,5 @@
+setup.py
+Metaprompt.egg-info/PKG-INFO
+Metaprompt.egg-info/SOURCES.txt
+Metaprompt.egg-info/dependency_links.txt
+Metaprompt.egg-info/top_level.txt
