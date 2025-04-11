@@ -2,7 +2,6 @@ from Chain import Prompt, Model, Chain
 from pathlib import Path
 import argparse
 import sys
-from message_store import MessageStore
 from rich.console import Console
 
 # set dir_path
@@ -24,18 +23,11 @@ Also have the LLM do chain of thought from the perspective of a learner. IF I wa
 """
 
 if __name__ == "__main__":
-    # set up messagestore
-    file_path = dir_path / "messagestore.pickle"
-    messagestore = MessageStore(file_path = file_path, console=console)
     # Our parser
     parser = argparse.ArgumentParser()
     parser.add_argument("task", type=str, nargs="?", help="TASK")
-    parser.add_argument("-l", "--last", action="store_true", help="Return the last output.")
     args = parser.parse_args()
     # Grab task from args if exists
-    if args.last:
-        console.print(messagestore.last().content)
-        sys.exit()
     if args.task:
         task = args.task
     # Otherwise, check if a task is being piped into script through stdin
@@ -52,8 +44,6 @@ if __name__ == "__main__":
         metamodel_examples_string = f.read()
     metaprompt = Prompt(metaprompt_string + metamodel_examples_string)
     model = Model("claude")
-    chain = Chain(metaprompt, model)
-    response = chain.run(input_variables = {'TASK':task})
+    chain = Chain(prompt=metaprompt, model=model)
+    response = chain.run(input_variables={"TASK": task})
     console.print(response)
-    messagestore.add('user', response.prompt)
-    messagestore.add('assistant', response.content)
