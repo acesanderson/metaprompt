@@ -1,13 +1,19 @@
 from Chain import Prompt, Model, Chain
+from Chain.prompt.prompt_loader import PromptLoader
 from pathlib import Path
+from rich.console import Console
 import argparse
 import sys
-from rich.console import Console
 
-# set dir_path
-dir_path = Path(__file__).resolve().parent
+# paths
+DIR_PATH = Path(__file__).resolve().parent
+PROMPTS_PATH = DIR_PATH / "prompts"
+
 # set up console
 console = Console(width=100)
+# prompt loader
+loader = PromptLoader(PROMPTS_PATH)
+breakpoint()
 
 example_task = """
 I will use an LLM to help me curate courses from a catalogue of 10,000 courses to best address a topic for a given audience.

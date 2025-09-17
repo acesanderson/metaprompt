@@ -1,0 +1,20 @@
+[project]
+name = "metaprompt"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "anthropic>=0.68.0",
+    "database-clients",
+    "google-genai>=1.38.0",
+    "instructor>=1.11.3",
+    "jinja2>=3.1.6",
+    "openai>=1.107.3",
+    "pillow>=11.3.0",
+    "python-dotenv>=1.1.1",
+    "tinydb>=4.8.2",
+]
+
+[tool.uv.sources]
+database-clients = { path = "../database-clients", editable = true }
