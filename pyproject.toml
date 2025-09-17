@@ -1,9 +1,9 @@
 [project]
 name = "metaprompt"
 version = "0.1.0"
-description = "Add your description here"
+description = "A framework for building complex AI prompts."
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.12"
 dependencies = [
     "anthropic>=0.68.0",
     "database-clients",
@@ -13,8 +13,20 @@ dependencies = [
     "openai>=1.107.3",
     "pillow>=11.3.0",
     "python-dotenv>=1.1.1",
+    "tiktoken>=0.11.0",
     "tinydb>=4.8.2",
 ]
 
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/metaprompt"]
+
 [tool.uv.sources]
 database-clients = { path = "../database-clients", editable = true }
+
+[project.scripts]
+metaprompt = "metaprompt.meta:main"
+
