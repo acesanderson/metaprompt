@@ -1,4 +1,4 @@
-from Chain import Prompt, Model, Chain, Response
+from Chain import Prompt, Model, Chain, Response, ChainCache, Verbosity
 from Chain.prompt.prompt_loader import PromptLoader
 from pathlib import Path
 from rich.console import Console
@@ -8,10 +8,11 @@ import sys
 # constants
 DIR_PATH = Path(__file__).resolve().parent
 PROMPTS_PATH = DIR_PATH / "prompts"
-# set up console
-console = Console(width=100)
+CACHE_FILE = DIR_PATH / ".cache.db"
 # prompt loader
 loader = PromptLoader(PROMPTS_PATH)
+# cache
+Model._chain_cache = ChainCache(db_path=CACHE_FILE)
 
 
 def generate_prompt(task: str) -> str:
@@ -33,7 +34,7 @@ def generate_prompt(task: str) -> str:
     )
     model = Model("claude")
     chain = Chain(prompt=metaprompt, model=model)
-    response = chain.run(input_variables={"TASK": task})
+    response = chain.run(input_variables={"TASK": task}, verbose=Verbosity.PROGRESS)
     if not isinstance(response, Response):
         raise ValueError("Response is not of type Response")
     else:
@@ -54,10 +55,10 @@ def main():
         task = f"\n<context>\n{context}</context>"
     # Otherwise, use the example task.
     else:
-        task = loader["example_task"]
+        task = loader["example_task"].prompt_string
     # Build our string
     metaprompt = generate_prompt(task)
-    console.print(metaprompt)
+    print(metaprompt)
 
 
 if __name__ == "__main__":
