@@ -22,7 +22,8 @@ The review should also mention if a course feels out of place, if the coverage i
 Also have the LLM do chain of thought from the perspective of a learner. IF I watch this course, I will learn this. If I watch the next course, I will learn that. and reflecting along the way.
 """
 
-if __name__ == "__main__":
+
+def main():
     # Our parser
     parser = argparse.ArgumentParser()
     parser.add_argument("task", type=str, nargs="?", help="TASK")
@@ -46,4 +47,8 @@ if __name__ == "__main__":
     model = Model("claude")
     chain = Chain(prompt=metaprompt, model=model)
     response = chain.run(input_variables={"TASK": task})
-    console.print(response)
+    console.print(response.content)
+
+
+if __name__ == "__main__":
+    main()
