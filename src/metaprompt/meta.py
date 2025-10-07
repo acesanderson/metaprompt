@@ -1,47 +1,30 @@
-from Chain import Prompt, Model, Chain, Response, ChainCache, Verbosity
-from Chain.prompt.prompt_loader import PromptLoader
+from conduit.sync import Prompt, Model, Chain
 from pathlib import Path
-from rich.console import Console
 import argparse
 import sys
+from rich.console import Console
 
-# constants
-DIR_PATH = Path(__file__).resolve().parent
-PROMPTS_PATH = DIR_PATH / "prompts"
-CACHE_FILE = DIR_PATH / ".cache.db"
-# prompt loader
-loader = PromptLoader(PROMPTS_PATH)
-# cache
-Model._chain_cache = ChainCache(db_path=CACHE_FILE)
+# set dir_path
+dir_path = Path(__file__).resolve().parent
+# set up console
+console = Console(width=100)
 
+example_task = """
+I will use an LLM to help me curate courses from a catalogue of 10,000 courses to best address a topic for a given audience.
 
-def generate_prompt(task: str) -> str:
-    """
-    Generate a prompt for a given task.
+I want to give an LLM a detailed curriculum of video courses, typically around 3-8 courses with a full TOC and video-level descriptions. I want it to provide a very nuanced and accurate review of whether it achieves the following:
+- covers the right topics
+- accurately scaffolds from pre-requisites to new topics
+- ccurately scaffolds from beginner to more intermediate topics
+ 
+The review should also mention if a course feels out of place, if the coverage is too redundant in some sections, and whether a topic needs to be added.
 
-    This uses Anthropic's massive megaprompt to generate a prompt for a given task.
-
-    Args:
-        task (str): The task to generate a prompt for.
-
-    Returns:
-        str: The generated prompt.
-    """
-    metaprompt_string = loader["metaprompt"]
-    metamodel_examples_string = loader["metaprompt_examples"]
-    metaprompt = Prompt(
-        metaprompt_string.prompt_string + metamodel_examples_string.prompt_string
-    )
-    model = Model("claude")
-    chain = Chain(prompt=metaprompt, model=model)
-    response = chain.run(input_variables={"TASK": task}, verbose=Verbosity.PROGRESS)
-    if not isinstance(response, Response):
-        raise ValueError("Response is not of type Response")
-    else:
-        return str(response.content)
+Also have the LLM do chain of thought from the perspective of a learner. IF I watch this course, I will learn this. If I watch the next course, I will learn that. and reflecting along the way.
+"""
 
 
 def main():
+    # Our parser
     parser = argparse.ArgumentParser()
     parser.add_argument("task", type=str, nargs="?", help="TASK")
     args = parser.parse_args()
@@ -55,10 +38,16 @@ def main():
         task = f"\n<context>\n{context}</context>"
     # Otherwise, use the example task.
     else:
-        task = loader["example_task"].prompt_string
-    # Build our string
-    metaprompt = generate_prompt(task)
-    print(metaprompt)
+        task = example_task
+    with open(dir_path / "metaprompt.jinja", "r") as f:
+        metaprompt_string = f.read()
+    with open(dir_path / "metaprompt_examples.txt", "r") as f:
+        metamodel_examples_string = f.read()
+    metaprompt = Prompt(metaprompt_string + metamodel_examples_string)
+    model = Model("claude")
+    chain = Chain(prompt=metaprompt, model=model)
+    response = chain.run(input_variables={"TASK": task})
+    console.print(response.content)
 
 
 if __name__ == "__main__":
