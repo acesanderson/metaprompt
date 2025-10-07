@@ -1,26 +1,33 @@
-from conduit.sync import Prompt, Model, Chain
+from conduit.sync import Prompt, Model, Conduit, Response, Verbosity
+from conduit.cache.cache import ConduitCache
 from pathlib import Path
 import argparse
 import sys
 from rich.console import Console
 
-# set dir_path
 dir_path = Path(__file__).resolve().parent
-# set up console
+prompts_path = dir_path / "prompts"
+cache_file = dir_path / ".conduit_cache.db"
+Model._conduit_cache = ConduitCache(db_path=cache_file)
 console = Console(width=100)
+Model._console = console
+verbose = Verbosity.COMPLETE
 
-example_task = """
-I will use an LLM to help me curate courses from a catalogue of 10,000 courses to best address a topic for a given audience.
 
-I want to give an LLM a detailed curriculum of video courses, typically around 3-8 courses with a full TOC and video-level descriptions. I want it to provide a very nuanced and accurate review of whether it achieves the following:
-- covers the right topics
-- accurately scaffolds from pre-requisites to new topics
-- ccurately scaffolds from beginner to more intermediate topics
- 
-The review should also mention if a course feels out of place, if the coverage is too redundant in some sections, and whether a topic needs to be added.
-
-Also have the LLM do chain of thought from the perspective of a learner. IF I watch this course, I will learn this. If I watch the next course, I will learn that. and reflecting along the way.
-"""
+def extract_instructions(text: str) -> str:
+    """
+    Extract instructions from text.
+    """
+    # We're very meta here, so we have to turn single curly braces into
+    # double curly braces so we have proper jinja formatting.
+    text = text.replace("{", "{{").replace("}", "}}")
+    # Now we extract the instructions
+    start = text.find("<Instructions>")
+    end = text.find("</Instructions>")
+    if start != -1 and end != -1:
+        return text[start + len("<instructions>") : end].strip()
+    else:
+        raise ValueError("No instructions found in the text.")
 
 
 def main():
@@ -38,16 +45,20 @@ def main():
         task = f"\n<context>\n{context}</context>"
     # Otherwise, use the example task.
     else:
-        task = example_task
-    with open(dir_path / "metaprompt.jinja", "r") as f:
+        with open(prompts_path / "example_task.jinja", "r") as f:
+            task = f.read()
+    with open(prompts_path / "metaprompt.jinja", "r") as f:
         metaprompt_string = f.read()
-    with open(dir_path / "metaprompt_examples.txt", "r") as f:
+    with open(prompts_path / "metaprompt_examples.jinja", "r") as f:
         metamodel_examples_string = f.read()
     metaprompt = Prompt(metaprompt_string + metamodel_examples_string)
     model = Model("claude")
-    chain = Chain(prompt=metaprompt, model=model)
-    response = chain.run(input_variables={"TASK": task})
-    console.print(response.content)
+    conduit = Conduit(prompt=metaprompt, model=model)
+    response = conduit.run(input_variables={"TASK": task}, verbose=verbose)
+    assert isinstance(response, Response), "Response is not of type Response"
+    output = str(response.content)
+    instructions = extract_instructions(output)
+    console.print(instructions)
 
 
 if __name__ == "__main__":
