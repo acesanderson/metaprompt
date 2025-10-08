@@ -1,47 +1,37 @@
-from Chain import Prompt, Model, Chain, Response, ChainCache, Verbosity
-from Chain.prompt.prompt_loader import PromptLoader
+from conduit.sync import Prompt, Model, Conduit, Response, Verbosity
+from conduit.cache.cache import ConduitCache
 from pathlib import Path
-from rich.console import Console
 import argparse
 import sys
+from rich.console import Console
 
-# constants
-DIR_PATH = Path(__file__).resolve().parent
-PROMPTS_PATH = DIR_PATH / "prompts"
-CACHE_FILE = DIR_PATH / ".cache.db"
-# prompt loader
-loader = PromptLoader(PROMPTS_PATH)
-# cache
-Model._chain_cache = ChainCache(db_path=CACHE_FILE)
+dir_path = Path(__file__).resolve().parent
+prompts_path = dir_path / "prompts"
+cache_file = dir_path / ".conduit_cache.db"
+Model._conduit_cache = ConduitCache(db_path=cache_file)
+console = Console(width=100)
+Model._console = console
+verbose = Verbosity.COMPLETE
 
 
-def generate_prompt(task: str) -> str:
+def extract_instructions(text: str) -> str:
     """
-    Generate a prompt for a given task.
-
-    This uses Anthropic's massive megaprompt to generate a prompt for a given task.
-
-    Args:
-        task (str): The task to generate a prompt for.
-
-    Returns:
-        str: The generated prompt.
+    Extract instructions from text.
     """
-    metaprompt_string = loader["metaprompt"]
-    metamodel_examples_string = loader["metaprompt_examples"]
-    metaprompt = Prompt(
-        metaprompt_string.prompt_string + metamodel_examples_string.prompt_string
-    )
-    model = Model("claude")
-    chain = Chain(prompt=metaprompt, model=model)
-    response = chain.run(input_variables={"TASK": task}, verbose=Verbosity.PROGRESS)
-    if not isinstance(response, Response):
-        raise ValueError("Response is not of type Response")
+    # We're very meta here, so we have to turn single curly braces into
+    # double curly braces so we have proper jinja formatting.
+    text = text.replace("{", "{{").replace("}", "}}")
+    # Now we extract the instructions
+    start = text.find("<Instructions>")
+    end = text.find("</Instructions>")
+    if start != -1 and end != -1:
+        return text[start + len("<instructions>") : end].strip()
     else:
-        return str(response.content)
+        raise ValueError("No instructions found in the text.")
 
 
 def main():
+    # Our parser
     parser = argparse.ArgumentParser()
     parser.add_argument("task", type=str, nargs="?", help="TASK")
     args = parser.parse_args()
@@ -55,10 +45,20 @@ def main():
         task = f"\n<context>\n{context}</context>"
     # Otherwise, use the example task.
     else:
-        task = loader["example_task"].prompt_string
-    # Build our string
-    metaprompt = generate_prompt(task)
-    print(metaprompt)
+        with open(prompts_path / "example_task.jinja", "r") as f:
+            task = f.read()
+    with open(prompts_path / "metaprompt.jinja", "r") as f:
+        metaprompt_string = f.read()
+    with open(prompts_path / "metaprompt_examples.jinja", "r") as f:
+        metamodel_examples_string = f.read()
+    metaprompt = Prompt(metaprompt_string + metamodel_examples_string)
+    model = Model("claude")
+    conduit = Conduit(prompt=metaprompt, model=model)
+    response = conduit.run(input_variables={"TASK": task}, verbose=verbose)
+    assert isinstance(response, Response), "Response is not of type Response"
+    output = str(response.content)
+    instructions = extract_instructions(output)
+    console.print(instructions)
 
 
 if __name__ == "__main__":
